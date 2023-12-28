@@ -20,7 +20,6 @@ class Day5 {
     // Cut in list of slice EACH slice must processed again
 
 
-
     private val mapMappingRule: MutableMap<MappingRule, MutableList<MappingRuleRange>> = mutableMapOf()
 
 
@@ -61,7 +60,7 @@ class Day5 {
 
         // rintln("map: $mapMappingRule")
 
-        val locationMin = seedslist.map { seed -> processSeedLocation(seed) }. min()
+        val locationMin = seedslist.map { seed -> processSeedLocation(seed) }.min()
         println("result = $locationMin")
     }
 
@@ -95,7 +94,6 @@ class Day5 {
     }
 
 
-
     private fun processRules(mappingRule: MappingRule, entryNumber: Long): Long {
 
         val mappingRangeMatched: MappingRuleRange? = mapMappingRule
@@ -125,7 +123,7 @@ class Day5 {
         var seedPairs: MutableList<SeedPair> = mutableListOf()
 
         val allNumbers = line.split(" ")
-        allNumbers.forEachIndexed{idx, value ->
+        allNumbers.forEachIndexed { idx, value ->
             if (isOddNumber(idx)) {
                 seedPairs.add(SeedPair(value.toLong(), allNumbers[idx + 1].toLong()))
             }
@@ -152,21 +150,18 @@ class Day5 {
 //        return loc
 //    }
 
-    private fun processRules2(mappingRule: MappingRule, entryNumber: SeedSlice): List<SeedSlice> {
+    private fun processRules2(mappingRule: MappingRule, entrySlice: SeedSlice): List<SeedSlice> {
 
-        val mappingRangeMatched: MappingRuleRange? = mapMappingRule
+        val mappingRangesList: List<MappingRuleRange> = mapMappingRule
             .getOrElse(mappingRule, { mutableListOf() })
-            .find { range -> matchRange(entryNumber, range) }
 
-        var resultRule: Long = 0
-        if (mappingRangeMatched == null) {
-            resultRule = entryNumber
-        } else {
-            resultRule = extractDestFromRange(entryNumber, mappingRangeMatched)
-        }
+        extractSliceFromRange(entrySlice, mappingRangesList)
 
-        // println("entryNb: $entryNumber rule: $mappingRule result: $resultRule")
-        return resultRule
+
+    }
+
+    private fun extractSliceFromRange(entrySlice: SeedSlice, mappingRangesList: List<MappingRuleRange>): OutputRangeSlice {
+
     }
 
 
@@ -187,5 +182,7 @@ class Day5 {
     private data class SeedPair(val seedStart: Long, val seedRange: Long)
 
     private data class SeedSlice(val sliceStart: Long, val sliceRange: Long)
+
+    private data class OutputRangeSlice(val effectiveSlice: SeedSlice, val remainingSlice: SeedSlice)
 
 }
