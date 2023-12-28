@@ -1,6 +1,3 @@
-import java.io.File
-import java.nio.file.Path
-
 //TIP To <b>Run</b> code, press <shortcut actionId="Run"/> or
 // click the <icon src="AllIcons.Actions.Execute"/> icon in the gutter.
 fun main() {
@@ -14,6 +11,6 @@ fun main() {
 //    Day3("src/day03.txt").process()
 //    Day4("src/day04.txt").process()
 //    Day4("src/day04.txt").process2()
-    Day5().process1("src/day05-sample.txt")
+    Day5().processBoth("src/day05.txt")
 }
 
