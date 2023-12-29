@@ -1,4 +1,5 @@
 import java.io.File
+import java.util.stream.Collectors
 
 class Day8 {
 
@@ -11,8 +12,11 @@ class Day8 {
         val positions: List<Position> = extractPositions(filePath)
         println("instructions: $instructions")
         println("positions: $positions")
+        val positionsMap = convertPositionsToMap(positions)
 
     }
+
+
 
     private fun extractInstructions(filePath: String): List<String> {
         val firstLine = File(filePath).readLines().first()
@@ -47,6 +51,10 @@ class Day8 {
         val nextPosRight = nextPosList.get(1).trim()
 
         return Position(positionValue, nextPosLeft, nextPosRight)
+    }
+
+    private fun convertPositionsToMap(positions: List<Position>): Map<String, Position> {
+        return positions.stream().collect(Collectors.toMap({ pos -> pos.value}, {pos -> pos}))
     }
 
     private enum class Instruction(val label: String) {
