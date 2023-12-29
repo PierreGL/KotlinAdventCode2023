@@ -10,16 +10,14 @@ class Day8 {
     fun process(filePath: String) {
         println("$filePath")
 
-
         instructions = extractInstructions(filePath)
         val positions: List<Position> = extractPositions(filePath)
-//        setEndPosition(positions)
-        println("instructions: $instructions")
-        println("positions: $positions")
-        println("positions size: ${positions.size}")
+//        println("instructions: $instructions")
+//        println("positions: $positions")
+//        println("positions size: ${positions.size}")
         val positionsMap = convertPositionsToMap(positions)
 
-        //process1(positionsMap)
+        process1(positionsMap)
         process2(positionsMap, positions)
     }
 
@@ -29,7 +27,7 @@ class Day8 {
         val initialPosition: Position? = positionsMap.get("AAA")
         if (initialPosition != null) {
             val result = navigateNetwork(instructionsSet, initialPosition, positionsMap)
-            println("process1: $result")
+            println("process1 result: $result")
         } else {
             throw RuntimeException("Initial position not found")
         }
@@ -40,7 +38,7 @@ class Day8 {
         val initialPositions: List<Position> = extractInitialPositions2(positions)
         println("initialPositions: $initialPositions")
         val result = navigateNetwork2(initialPositions, positionsMap)
-        println("process2: $result")
+        println("process2 result: $result")
     }
 
     private fun extractInstructions(filePath: String): List<String> {
@@ -95,15 +93,11 @@ class Day8 {
         var finalPositionFound: Boolean = false
 
         while (!finalPositionFound) {
-            println("---")
             stepCounter++
             val nextInstruction = instructionsSet.nextInstruction()
-            println("currentPosition: $currentPosition nextInstruction: $nextInstruction")
 
             val nextPositionValue: String = currentPosition.getNextPositionValue(nextInstruction.value)
             val nextPosition: Position? = positionsMap.get(nextPositionValue)
-            println("nextPosition: $nextPosition")
-
 
             if (nextPosition != null) {
                 currentPosition = nextPosition
@@ -179,7 +173,6 @@ class Day8 {
     ): Position {
         val nextPositionValue: String = currentPosition.getNextPositionValue(nextInstruction)
         val nextPosition: Position? = positionsMap.get(nextPositionValue)
-//        println("nextPosition: $nextPosition")
         if (nextPosition != null) {
             return nextPosition
         } else {
@@ -219,8 +212,6 @@ class Day8 {
             val newInstruction = instructionsSet.nextInstruction()
             val newPositionValue: String = currentPosition.getNextPositionValue(newInstruction.value)
             val newPosition: Position? = positionsMap.get(newPositionValue)
-            //println("newPositionValue: $newPositionValue newPosition: $newPosition")
-
 
             if (newPosition != null) {
                 currentPosition = newPosition
@@ -230,24 +221,12 @@ class Day8 {
 
             if (currentPosition.isEndPosition()) {
                 println("currentPosition match end: $currentPosition stepCounter: $stepCounter")
-                //navigationPattern.addMatchingStep(stepCounter)
                 navigationPattern.stepPattern = stepCounter
                 isPatternCompleted = true
             }
-
-            //isPatternCompleted = isPatternCompleted(newInstruction, newPosition, initialPosition)
         }
 
         return navigationPattern
-    }
-
-    private fun isPatternCompleted2(
-        instruction: Instruction,
-        currentPosition: Position,
-        initialPosition: Position
-    ): Boolean {
-
-        return instruction.isInitialInstruction() && currentPosition.value == initialPosition.value
     }
 
     private class InstructionsSet(val instructionsValues: List<String>) {
