@@ -14,6 +14,6 @@ fun main() {
     // Day5().processBoth("src/day05.txt")
 //    Day6().process("src/day06.txt")
     //Day7().process("src/day07.txt")
-    Day8().process("src/day08-sample.txt")
+    Day8().process("src/day08.txt")
 }
 
