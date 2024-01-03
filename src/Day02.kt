@@ -1,6 +1,6 @@
 import java.io.File
 
-class Day2(val filePath: String) {
+class Day02(val filePath: String) {
 
     private val limitByColor = mapOf("red" to 12, "green" to 13, "blue" to 14)
 

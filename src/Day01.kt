@@ -1,6 +1,6 @@
 import java.io.File
 
-class Day1(val filePath: String) {
+class Day01(val filePath: String) {
     val digits: String = "0123456789"
     val digitsAndLetter = listOf(
         "0", "1", "2", "3", "4", "5", "6", "7", "8", "9",

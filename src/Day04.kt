@@ -1,6 +1,6 @@
 import java.io.File
 
-class Day4(val filePath: String) {
+class Day04(val filePath: String) {
 
     val mapCardNumber: MutableMap<Int, Int> = mutableMapOf()
 

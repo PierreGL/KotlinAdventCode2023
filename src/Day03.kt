@@ -1,6 +1,6 @@
 import java.io.File
 
-class Day3(val filePath: String) {
+class Day03(val filePath: String) {
 
     val symbolsList: String = "#*+$"
 

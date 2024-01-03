@@ -1,6 +1,6 @@
 import java.io.File
 
-class Day9 {
+class Day09 {
 
     fun process(filePath: String) {
         println("$filePath") // 114

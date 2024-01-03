@@ -2,7 +2,7 @@ import java.io.File
 import java.lang.RuntimeException
 import java.util.stream.Collectors
 
-class Day8 {
+class Day08 {
 
     private var endPositionValue: String = "ZZZ"
     private var instructions: List<String> = listOf()

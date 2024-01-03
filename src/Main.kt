@@ -4,7 +4,7 @@ fun main() {
     //day1("src/day01-1.txt");
     //day1("src/day01-2.txt")
 
-    //Day1("src/day01-1.txt").process2()
+//    Day01("src/day01-1.txt").process2()
     //Day2("src/day02-1.txt").process1()
     //Day2("src/day02-1.txt").process2()
 //    Day3("src/day03.txt").process()
@@ -17,7 +17,7 @@ fun main() {
     //Day8().process("src/day08.txt")
     //Day9().process("src/day09.txt")
     //Day10().process("src/day10.txt")
-    Day10.process("src/day10.txt")
+    //Day10.process("src/day10.txt")
 
 }
 

@@ -1,7 +1,7 @@
 import java.io.File
 import java.lang.RuntimeException
 
-class Day7 {
+class Day07 {
 
     fun process(filePath: String) {
         println("$filePath")

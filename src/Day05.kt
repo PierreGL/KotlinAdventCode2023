@@ -1,7 +1,6 @@
 import java.io.File
-import kotlin.math.min
 
-class Day5 {
+class Day05 {
 
     private val mappingRulesWithRanges: MutableMap<MappingRule, List<MappingRuleRange>> = mutableMapOf()
 
