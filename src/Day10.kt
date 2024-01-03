@@ -9,7 +9,7 @@ class Day10 {
     fun process(filePath: String) {
         println("$filePath")
         val file = File(filePath)
-        extractAllPipes(file)
+        buildMaze(file)
         //println(maze)
         val foundStartingPipe = startingPoint ?: throw RuntimeException("Starting point should be extracted now")
         println("foundStartingPipe= $foundStartingPipe")
@@ -19,11 +19,14 @@ class Day10 {
         val completeLoopSize = travelCompleteMaze(foundStartingPipe)
 
         val farthestDistance = computeFarthestPointDistance(completeLoopSize)
-        println("process1 : $farthestDistance")
+        println("process1=$farthestDistance")
+
+        val result2 = ScanningMaze(maze, file).scanFile()
+        println("process2=$result2")
 
     }
 
-    private fun extractAllPipes(file: File) {
+    private fun buildMaze(file: File) {
         file.readLines().forEachIndexed { lineIdx, line ->
             extractPipeFromLine(lineIdx, line)
         }
@@ -43,6 +46,9 @@ class Day10 {
     private fun updateStartingPipe(start: Pipe) {
         val pipeType = findUnknownPipeType(start);
         start.pipeType = pipeType
+        val startPipeFromMaze: Pipe =
+            maze.mapMaze.get(start.key()) ?: throw RuntimeException("Start pipe should be in Maze ${start.key()}")
+        startPipeFromMaze.pipeType = pipeType
     }
 
     private fun findUnknownPipeType(unknownPipe: Pipe): PipeType {
@@ -57,8 +63,10 @@ class Day10 {
         val isEastConn: Boolean = areConnected(unknownPipe, east)
         val isWestConn: Boolean = areConnected(unknownPipe, west)
 
-        println("north=$north south=$south east=$east west=$west " +
-                " - isNorthConn=$isNorthConn isSouthConn=$isSouthConn isEastConn=$isEastConn isWestConn=$isWestConn")
+        println(
+            "north=$north south=$south east=$east west=$west " +
+                    " - isNorthConn=$isNorthConn isSouthConn=$isSouthConn isEastConn=$isEastConn isWestConn=$isWestConn"
+        )
         var result: PipeType
 
         if (isNorthConn && isSouthConn) {
@@ -102,10 +110,11 @@ class Day10 {
             completeLoopSize++
             val currentConnectedKeys: Pair<Coord, Coord> = currentPipe.getConnectedKeys()
                 ?: throw RuntimeException("Invalid case : travelling maze should not lead to a not connected pipe")
+            currentPipe.setPartOfTheLoop()
             var nextPipe: Pipe
             // By convention if it's the starting point we take the first connection
 
-            println("previousPipe=$previousPipe - currentPipe=$currentPipe")
+            //println("previousPipe=$previousPipe - currentPipe=$currentPipe")
             if (previousPipe == null) {
                 nextPipe = maze.getPipeByKey(currentConnectedKeys.first)
 
@@ -151,14 +160,29 @@ class Day10 {
             return mapMaze.get(key) ?: throw RuntimeException("Not existing coord $key")
         }
 
+        fun isLoopPipe(coord: Coord): Boolean {
+            return mapMaze.get(coord)?.isPartOfTheLoop()?: false
+        }
+
         override fun toString(): String {
             return mapMaze.toString()
         }
     }
 
     private data class Pipe(val abs: Int, val ord: Int, var pipeType: PipeType) {
+
+        private var partOfTheLoop: Boolean = false
+
         fun key(): Coord {
             return Coord(abs, ord)
+        }
+
+        fun setPartOfTheLoop() {
+            partOfTheLoop = true
+        }
+
+        fun isPartOfTheLoop(): Boolean {
+            return partOfTheLoop
         }
 
         private fun createConnKey(abs: Int, ord: Int): Coord {
@@ -178,6 +202,8 @@ class Day10 {
             }
             return result
         }
+
+
     }
 
     private enum class PipeType(val symbol: String) {
@@ -199,4 +225,57 @@ class Day10 {
     }
 
     private data class Coord(val abs: Int, val ord: Int)
+
+    private class ScanningMaze(val maze: Maze, val file: File) {
+
+        private var insideLoop: Boolean = false
+        private var tileEnclosedCounter: Long = 0
+        private val borderPipeEastWest = setOf(NORTH_SOUTH, NORTH_EAST, NORTH_WEST, SOUTH_WEST, SOUTH_EAST)
+
+        fun scanFile(): Long {
+            tileEnclosedCounter = 0
+
+            file.readLines().forEachIndexed { lineIdx, line ->
+                scanLine(lineIdx, line)
+            }
+
+            return tileEnclosedCounter
+
+        }
+
+        private fun scanLine(lineIdx: Int, line: String) {
+            insideLoop = false
+            line.toList().forEachIndexed { charIdx: Int, char: Char ->
+                val coord = Coord(charIdx, lineIdx)
+                val pipeType: PipeType = PipeType.findFromSymbol(char.toString())
+                println("scanLine: coord=$coord pipeType:$pipeType")
+                if (maze.isLoopPipe(coord)) {
+                    println("isLoopPipe")
+                    if (isBorderEastWestPipe(pipeType)) {
+                        println("isBorderEastWestPipe")
+                        switchInsideOutside()
+                    }
+                } else {
+                    println("NOT LoopPipe")
+
+                    if (insideLoop) {
+                        println("insideLoop")
+                        tileEnclosedCounter++
+                    }
+                }
+
+            }
+        }
+
+        private fun isBorderEastWestPipe(pipeType: PipeType): Boolean {
+            return borderPipeEastWest.contains(pipeType)
+        }
+
+        private fun switchInsideOutside() {
+            insideLoop = !insideLoop
+        }
+
+    }
+
+
 }
