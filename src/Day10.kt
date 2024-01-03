@@ -1,7 +1,7 @@
 import Day10.PipeType.*
 import java.io.File
 
-class Day10 {
+object Day10 {
 
     private val maze: Maze = Maze()
     private var startingPoint: Pipe? = null
@@ -10,20 +10,19 @@ class Day10 {
         println("$filePath")
         val file = File(filePath)
         buildMaze(file)
-        //println(maze)
         val foundStartingPipe = startingPoint ?: throw RuntimeException("Starting point should be extracted now")
         println("foundStartingPipe= $foundStartingPipe")
         updateStartingPipe(foundStartingPipe)
         println("updated foundStartingPipe= $foundStartingPipe")
 
         val completeLoopSize = travelCompleteMaze(foundStartingPipe)
+        println("maze== $maze")
 
         val farthestDistance = computeFarthestPointDistance(completeLoopSize)
         println("process1=$farthestDistance")
 
         val result2 = ScanningMaze(maze, file).scanFile()
         println("process2=$result2")
-
     }
 
     private fun buildMaze(file: File) {
@@ -58,10 +57,10 @@ class Day10 {
         val east: Pipe? = maze.getPipeByCoord(unknownPipe.abs + 1, unknownPipe.ord)
         val west: Pipe? = maze.getPipeByCoord(unknownPipe.abs - 1, unknownPipe.ord)
 
-        val isNorthConn: Boolean = areConnected(unknownPipe, north)
-        val isSouthConn: Boolean = areConnected(unknownPipe, south)
-        val isEastConn: Boolean = areConnected(unknownPipe, east)
-        val isWestConn: Boolean = areConnected(unknownPipe, west)
+        val isNorthConn: Boolean = unknownPipe.isConnected(north)
+        val isSouthConn: Boolean = unknownPipe.isConnected(south)
+        val isEastConn: Boolean = unknownPipe.isConnected(east)
+        val isWestConn: Boolean = unknownPipe.isConnected(west)
 
         println(
             "north=$north south=$south east=$east west=$west " +
@@ -87,18 +86,6 @@ class Day10 {
 
         return result
     }
-
-    private fun areConnected(unknownPipe: Pipe, knownPipe: Pipe?): Boolean {
-        val unknownPipeKey = unknownPipe.key()
-        val knownPipeKey: Pair<Coord, Coord>? = knownPipe?.getConnectedKeys()
-
-        if (knownPipeKey != null) {
-            return knownPipeKey.first == unknownPipeKey || knownPipeKey.second == unknownPipeKey
-        }
-
-        return false
-    }
-
 
     private fun travelCompleteMaze(startingPoint: Pipe): Long {
 
@@ -160,10 +147,6 @@ class Day10 {
             return mapMaze.get(key) ?: throw RuntimeException("Not existing coord $key")
         }
 
-        fun isLoopPipe(coord: Coord): Boolean {
-            return mapMaze.get(coord)?.isPartOfTheLoop()?: false
-        }
-
         override fun toString(): String {
             return mapMaze.toString()
         }
@@ -172,6 +155,8 @@ class Day10 {
     private data class Pipe(val abs: Int, val ord: Int, var pipeType: PipeType) {
 
         private var partOfTheLoop: Boolean = false
+        private val eastConnectedTypes: Set<PipeType> = setOf(EAST_WEST, NORTH_EAST, SOUTH_EAST)
+        private val westConnectedTypes: Set<PipeType> = setOf(EAST_WEST, NORTH_WEST, SOUTH_WEST)
 
         fun key(): Coord {
             return Coord(abs, ord)
@@ -199,11 +184,51 @@ class Day10 {
                 SOUTH_EAST -> Pair(createConnKey(abs, ord + 1), createConnKey(abs + 1, ord))
                 GROUND -> null
                 UNKNOWN -> null
+                INSIDE -> null
+                OUTSIDE -> null
             }
             return result
         }
 
+        fun isConnected(knownPipe: Pipe?): Boolean {
+            val unknownPipeKey = key()
+            val knownPipeKey: Pair<Coord, Coord>? = knownPipe?.getConnectedKeys()
 
+            if (knownPipeKey != null) {
+                return knownPipeKey.first == unknownPipeKey || knownPipeKey.second == unknownPipeKey
+            }
+
+            return false
+        }
+
+        /**
+         * Hypothetically connectable considering the orientation, bur necessarly besides and connected
+         * */
+        fun isConnectableFromWest(westPipe: Pipe?): Boolean {
+            if (westPipe != null) {
+                return isWestConnected() && westPipe.isEastConnected()
+            }
+            return false
+        }
+
+        fun isSymetric(otherPipe: Pipe?): Boolean {
+            return ((pipeType == NORTH_EAST && otherPipe?.pipeType == NORTH_WEST)
+                    || (pipeType == NORTH_WEST && otherPipe?.pipeType == NORTH_EAST)
+                    || (pipeType == SOUTH_EAST && otherPipe?.pipeType == SOUTH_WEST)
+                    || (pipeType == SOUTH_WEST && otherPipe?.pipeType == SOUTH_EAST))
+        }
+
+        fun isEastConnected(): Boolean {
+            return return eastConnectedTypes.contains(pipeType)
+        }
+
+        fun isWestConnected(): Boolean {
+            return return westConnectedTypes.contains(pipeType)
+        }
+
+        override fun toString(): String {
+            return "POS PIPE: line=${ord + 1} col=${abs + 1} $pipeType partOfTheLoop=$partOfTheLoop"
+        }
     }
 
     private enum class PipeType(val symbol: String) {
@@ -214,7 +239,9 @@ class Day10 {
         SOUTH_WEST("7"),
         SOUTH_EAST("F"),
         GROUND("."),
-        UNKNOWN("S");
+        UNKNOWN("S"),
+        INSIDE("I"),
+        OUTSIDE("O");
 
         companion object {
             fun findFromSymbol(symbol: String): PipeType {
@@ -228,9 +255,7 @@ class Day10 {
 
     private class ScanningMaze(val maze: Maze, val file: File) {
 
-        private var insideLoop: Boolean = false
         private var tileEnclosedCounter: Long = 0
-        private val borderPipeEastWest = setOf(NORTH_SOUTH, NORTH_EAST, NORTH_WEST, SOUTH_WEST, SOUTH_EAST)
 
         fun scanFile(): Long {
             tileEnclosedCounter = 0
@@ -244,38 +269,50 @@ class Day10 {
         }
 
         private fun scanLine(lineIdx: Int, line: String) {
-            insideLoop = false
+            var insideLoop = false
+            var lastLoopTile: Pipe? = null
             line.toList().forEachIndexed { charIdx: Int, char: Char ->
-                val coord = Coord(charIdx, lineIdx)
-                val pipeType: PipeType = PipeType.findFromSymbol(char.toString())
-                println("scanLine: coord=$coord pipeType:$pipeType")
-                if (maze.isLoopPipe(coord)) {
-                    println("isLoopPipe")
-                    if (isBorderEastWestPipe(pipeType)) {
-                        println("isBorderEastWestPipe")
-                        switchInsideOutside()
+                val currentTile: Pipe = maze.getPipeByKey(Coord(charIdx, lineIdx))
+                val isLoopTile: Boolean = currentTile.isPartOfTheLoop()
+
+                println(
+                    "currentTile: $currentTile " +
+                            "isLoopTile:$isLoopTile " +
+                            "isConnectable=${currentTile.isConnectableFromWest(lastLoopTile)} " +
+                            "isSymetric: ${currentTile.isSymetric(lastLoopTile)} " +
+                            "insideLoop before: $insideLoop"
+                )
+
+
+                if (isLoopTile) {
+                    // If connected we need to check the "symetry" of the cnnected tile
+                    if (currentTile.isConnectableFromWest(lastLoopTile)) {
+                        // A connected symetric will switch. But a connected asymetric will not switch
+                        if (currentTile.isSymetric(lastLoopTile)) {
+                            // switch inside/outside
+                            insideLoop = !insideLoop
+                        }
+                    } else {
+                        // In case of not connected tiles : there is necessarly a switch
+                        insideLoop = !insideLoop
+                    }
+
+                    if (currentTile.pipeType != EAST_WEST) {
+                        // In the particular case where the connection is EAST_WEST (-)
+                        // we don't change the last one : the sense of connection is preserved
+                        lastLoopTile = currentTile
                     }
                 } else {
-                    println("NOT LoopPipe")
-
                     if (insideLoop) {
-                        println("insideLoop")
+                        println("++++ insideLoop lastLoopTile: $lastLoopTile -> currentTile: $currentTile")
                         tileEnclosedCounter++
                     }
+                    lastLoopTile = null
                 }
+
+                println("INSIDE LOOP AFTER $insideLoop")
 
             }
         }
-
-        private fun isBorderEastWestPipe(pipeType: PipeType): Boolean {
-            return borderPipeEastWest.contains(pipeType)
-        }
-
-        private fun switchInsideOutside() {
-            insideLoop = !insideLoop
-        }
-
     }
-
-
 }
