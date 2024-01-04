@@ -11,12 +11,12 @@ object Day10 {
         val file = File(filePath)
         buildMaze(file)
         val foundStartingPipe = startingPoint ?: throw RuntimeException("Starting point should be extracted now")
-        println("foundStartingPipe= $foundStartingPipe")
+        //println("foundStartingPipe= $foundStartingPipe")
         updateStartingPipe(foundStartingPipe)
-        println("updated foundStartingPipe= $foundStartingPipe")
+        //println("updated foundStartingPipe= $foundStartingPipe")
 
         val completeLoopSize = travelCompleteMaze(foundStartingPipe)
-        println("maze== $maze")
+        //println("maze== $maze")
 
         val farthestDistance = computeFarthestPointDistance(completeLoopSize)
         println("process1=$farthestDistance")

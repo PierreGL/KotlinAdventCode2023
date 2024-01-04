@@ -18,6 +18,7 @@ fun main() {
     //Day9().process("src/day09.txt")
     //Day10().process("src/day10.txt")
     //Day10.process("src/day10.txt")
+    Day11.process("src/day11.txt")
 
 }
 
