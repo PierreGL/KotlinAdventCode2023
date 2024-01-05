@@ -18,15 +18,14 @@ object Day12 {
     }
 
     private fun process2(filepath: String) {
-        val unfoldRecords = File(filepath).readLines()
-            .map { line -> extractRecordFromLine(line) }
-            .map { record -> unfoldRecord2(record) }
+        val records = File(filepath).readLines().map { line -> extractRecordFromLine(line) }
+        val unfoldRecords = records.map { record -> unfoldRecord2(record) }
 
-        val unfoldRecordsSub = unfoldRecords.subList(0, 1) // CHECK 1 2 4 / line 996 idx 995
-        println("unfoldRecordsSub = $unfoldRecordsSub")
+        val recordsToTreat = unfoldRecords.subList(1, 2) // CHECK 1 2 4 / line 996 idx 995
+        println("unfoldRecordsSub = $recordsToTreat")
 
         val sumAllValid =
-            unfoldRecordsSub.map { unfoldRecord -> ArrangementMatchingProcessor(unfoldRecord).process().count() }.sum()
+            recordsToTreat.map { unfoldRecord -> ArrangementMatchingProcessor(unfoldRecord).process().count() }.sum()
 
 
 //        println("validArrangementList= ${validArrangementList.size}")
@@ -237,7 +236,7 @@ object Day12 {
             val initialList = record.unknownSpringPositions
             val firstFullCombination = CombinationPosition(initialList)
             val firstArrangement = produceArrangementFromCombination(firstFullCombination, record)
-            val childArrangements: List<Arrangement> = produceChildArrangements(firstArrangement)
+            val childArrangements: List<Arrangement> = produceValidChildArrangements(firstArrangement)
             val lastEmptyCombination = CombinationPosition(listOf());
             val lastArrangement: Arrangement = produceArrangementFromCombination(lastEmptyCombination, record)
 
@@ -259,33 +258,33 @@ object Day12 {
             return allArrangements
         }
 
-        // TODO accordingbto the fact there are no matching for line 1 even it should have 2 matching. The filtration
+        // TODO according to the fact there are no matching for line 1 even it should have 2 matching. The filtration
         //  is invalid. Eliminating a parent cause elimination of all children which is not right
         // HYPO : maybe create a Tree with a map
         // HYPO : create some assertions of what is sure or what is impossible :
-        // TODO HYPO maybe a MAP of assertiveIncludedPosition : if a combi does not have that position it is wrong and every of its child will be wrong
-        private fun produceChildArrangements(arrangement: Arrangement): List<Arrangement> {
+        // TODO HYPO maybe a MAP of assertiveIncludedPosition : if a current combi does not have that position it can be excluded but also every of its child
+        // TODO go reverse direction map reduce : from small combi to large combi / map reduce / identify the invalid to avoid treating all branches
+        private fun produceValidChildArrangements(arrangement: Arrangement): List<Arrangement> {
             val combination = arrangement.combinationSource
-            val childValidArrangement: MutableList<Arrangement> = combination.listPositions
+
+            val childArrangements: MutableList<Arrangement> = combination.listPositions
                 .mapIndexed { idxToRemove: Int, pos: Int -> combination.removeOneByIdx(idxToRemove) }
                 .filter { childCombination -> childCombination.listPositions.isNotEmpty() }
                 .filter { childCombinationNotEmpty -> !alreadyTreatedCombinationSet.contains(childCombinationNotEmpty) }
                 .map { newChildCombination ->
                     alreadyTreatedCombinationSet.add(newChildCombination)
-                    println("newChildCombination $newChildCombination")
                     produceArrangementFromCombination(newChildCombination, record)
                 }
-                .filter { newArrangement -> isValidArrangement(newArrangement) }
-
-                //.map { newValidArrangement ->
-                //    combinationSet.add(newValidArrangement.combinationSource)
-                //    newValidArrangement
-                //}
                 .toCollection(mutableListOf())
+//            println("childArrangement= $childArrangements")
 
-            println("childValidArrangement= $childValidArrangement")
-            val nextValidChildArrangements: List<Arrangement> = childValidArrangement
-                .map { childArrang -> produceChildArrangements(childArrang) }
+            val childValidArrangement: MutableList<Arrangement> = childArrangements
+                .filter { newArrangement -> isValidArrangement(newArrangement) }
+                .toCollection(mutableListOf())
+//            println("childValidArrangement= $childValidArrangement")
+
+            val nextValidChildArrangements: List<Arrangement> = childArrangements
+                .map { childArrang -> produceValidChildArrangements(childArrang) }
                 .flatten()
 
             return childValidArrangement + nextValidChildArrangements
@@ -294,7 +293,3 @@ object Day12 {
     }
 
 }
-
-// broken / unknown / knowm
-// Continous group
-// Arangement
