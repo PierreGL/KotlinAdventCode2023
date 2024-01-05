@@ -73,7 +73,7 @@ object Day12 {
 
     private fun nbValidArrangement(record: Record): Int {
         val allValidArrangement: List<Arrangement> = produceAllArrangements(record)
-            .filter { arrangement -> arrangementMatchSequence(arrangement) }
+            .filter { arrangement -> isValidArrangement(arrangement) }
 
         val numberValidArrangement = allValidArrangement.size
         return numberValidArrangement
@@ -106,7 +106,7 @@ object Day12 {
         return Arrangement(originalValue, combinationAsDamagedValue, record.sequenceCtrl, combination)
     }
 
-    private fun arrangementMatchSequence(arrangement: Arrangement): Boolean {
+    private fun isValidArrangement(arrangement: Arrangement): Boolean {
         val sequence: Sequence = arrangement.sequenceCtrl
         val continuousGroups: List<ContinuousGroup> = arrangement.continuousGroups
 
@@ -231,7 +231,7 @@ object Day12 {
     private data class ArrangementMatchingProcessor(val record: Record) {
 
         //        val mapCombination: MutableMap<String, CombinationPosition> = mutableMapOf()
-        val combinationSet: MutableSet<CombinationPosition> = mutableSetOf()
+        val alreadyTreatedCombinationSet: MutableSet<CombinationPosition> = mutableSetOf()
 
         fun process(): List<Arrangement> {
             val initialList = record.unknownSpringPositions
@@ -242,11 +242,11 @@ object Day12 {
             val lastArrangement: Arrangement = produceArrangementFromCombination(lastEmptyCombination, record)
 
             val allArrangements: MutableList<Arrangement> = mutableListOf()
-            if (arrangementMatchSequence(firstArrangement)) {
+            if (isValidArrangement(firstArrangement)) {
                 allArrangements.add(firstArrangement)
             }
             allArrangements.addAll(childArrangements)
-            if (arrangementMatchSequence(lastArrangement)) {
+            if (isValidArrangement(lastArrangement)) {
                 allArrangements.add(lastArrangement)
             }
 
@@ -269,16 +269,18 @@ object Day12 {
             val childValidArrangement: MutableList<Arrangement> = combination.listPositions
                 .mapIndexed { idxToRemove: Int, pos: Int -> combination.removeOneByIdx(idxToRemove) }
                 .filter { childCombination -> childCombination.listPositions.isNotEmpty() }
-                .filter { childCombinationNotEmpty -> !combinationSet.contains(childCombinationNotEmpty) }
+                .filter { childCombinationNotEmpty -> !alreadyTreatedCombinationSet.contains(childCombinationNotEmpty) }
                 .map { newChildCombination ->
+                    alreadyTreatedCombinationSet.add(newChildCombination)
                     println("newChildCombination $newChildCombination")
                     produceArrangementFromCombination(newChildCombination, record)
                 }
-                .filter { newArrangement -> arrangementMatchSequence(newArrangement) }
-                .map { newValidArrangement ->
-                    combinationSet.add(newValidArrangement.combinationSource)
-                    newValidArrangement
-                }
+                .filter { newArrangement -> isValidArrangement(newArrangement) }
+
+                //.map { newValidArrangement ->
+                //    combinationSet.add(newValidArrangement.combinationSource)
+                //    newValidArrangement
+                //}
                 .toCollection(mutableListOf())
 
             println("childValidArrangement= $childValidArrangement")
