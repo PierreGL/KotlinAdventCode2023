@@ -19,14 +19,16 @@ object Day12 {
 
     private fun process2(filepath: String) {
         val records = File(filepath).readLines().map { line -> extractRecordFromLine(line) }
-        val unfoldRecords = records.map { record -> unfoldRecord2(record) }
+        val unfoldRecords = records.map { record -> unfoldRecord2(record, 2) }
 
-        val recordsToTreat = unfoldRecords.subList(1, 2) // CHECK 1 2 4 / line 996 idx 995
+        val recordsToTreat = records.subList(0, 1) // CHECK 1 2 4 / line 996 idx 995
         println("unfoldRecordsSub = $recordsToTreat")
 
-        val sumAllValid =
-            recordsToTreat.map { unfoldRecord -> ArrangementMatchingProcessor(unfoldRecord).process().count() }.sum()
+//        val sumAllValidV1 =
+//            recordsToTreat.map { unfoldRecord -> ArrangementMatchingProcessor(unfoldRecord).process().count() }.sum()
 
+        val sumAllValidV2 =
+            recordsToTreat.map { unfoldRecord -> ArrangementMatchingProcessor2(unfoldRecord).process().count() }.sum()
 
 //        println("validArrangementList= ${validArrangementList.size}")
 //        validArrangementList.forEach { validArrangement -> println(validArrangement) }
@@ -34,10 +36,10 @@ object Day12 {
 //        val countMatchingArrangement2 = unfoldRecordsSub
 //            .map { record -> nbValidArrangement(record) }
 //            .sum()
-        println("process2: $sumAllValid")
+        println("process2: $sumAllValidV2")
     }
 
-    private fun unfoldRecord2(inputRecord: Record): Record {
+    private fun unfoldRecord2(inputRecord: Record, recordMultiplier: Int): Record {
         val unfoldValueBuilder = StringBuilder(inputRecord.value)
 
         val initialSequenceValues: List<Int> = inputRecord.sequenceCtrl.sequenceValues
@@ -46,7 +48,7 @@ object Day12 {
 //        println("initialSequenceValues= $initialSequenceValues")
         val unfoldSequenceValues: MutableList<Int> = initialSequenceValues.toMutableList()
 
-        for (idx in 2..5) {
+        for (idx in 2..recordMultiplier) {
             unfoldValueBuilder.append("?")
             unfoldValueBuilder.append(inputRecord.value)
             unfoldSequenceValues.addAll(initialSequenceValues)
@@ -149,13 +151,31 @@ object Day12 {
         }
     }
 
+    //TODO check if the sorted list solve the problem of comparison
     private data class CombinationPosition(val listPositions: List<Int>) {
+        val sortedList: List<Int>
+        init {
+            sortedList = listPositions.sorted()
+        }
+
         fun removeOneByIdx(idxToRemove: Int): CombinationPosition {
             val updatedList = listPositions.filterIndexed { currentIdx: Int, pos: Int -> currentIdx != idxToRemove }
             return CombinationPosition(updatedList)
         }
-    }
 
+        //Here th contains of Set does not work as expected
+        override fun equals(other: Any?): Boolean {
+            return this.sortedList == other?:sortedList
+        }
+
+        override fun hashCode(): Int {
+            return sortedList.hashCode()
+        }
+
+        override fun toString(): String {
+            return "listPositions=$listPositions sortedList=$sortedList"
+        }
+    }
 
     private data class Sequence(val sequenceValues: List<Int>)
 
@@ -258,12 +278,6 @@ object Day12 {
             return allArrangements
         }
 
-        // TODO according to the fact there are no matching for line 1 even it should have 2 matching. The filtration
-        //  is invalid. Eliminating a parent cause elimination of all children which is not right
-        // HYPO : maybe create a Tree with a map
-        // HYPO : create some assertions of what is sure or what is impossible :
-        // TODO HYPO maybe a MAP of assertiveIncludedPosition : if a current combi does not have that position it can be excluded but also every of its child
-        // TODO go reverse direction map reduce : from small combi to large combi / map reduce / identify the invalid to avoid treating all branches
         private fun produceValidChildArrangements(arrangement: Arrangement): List<Arrangement> {
             val combination = arrangement.combinationSource
 
@@ -291,5 +305,94 @@ object Day12 {
         }
 
     }
+
+    // TODO go reverse direction (map reduce ?) : from small combi to large combi / identify the impossible case to avoid treating all branches
+    // TODO HYPO progress by level : each level produce combination made from previous combi and combi unit : eliminate valid combi and impossible combi each level
+    private data class ArrangementMatchingProcessor2(val record: Record) {
+        val validArrangements: MutableList<Arrangement> = mutableListOf()
+        val initialList: List<Int>
+        init {
+            initialList = record.unknownSpringPositions
+        }
+
+        fun process(): List<Arrangement> {
+            val initialUnitCombination = initialList
+                .map { pos -> CombinationPosition(listOf(pos)) }
+                .filter { combinationPosition -> unfilterAndStoreValidArrangement(combinationPosition) }
+
+            nextLevel(initialUnitCombination)
+            println("validArrangements = $validArrangements")
+            return validArrangements
+        }
+
+        fun nextLevel(combinationToEvaluate: List<CombinationPosition>) {
+            println("combinationToEvaluate = $combinationToEvaluate")
+
+            val allNextLevelCombination: List<CombinationPosition> =
+                generateAllNextLevel(combinationToEvaluate)
+            //TODO identify impossible combi ?  And remove them from the filtered list
+
+            val nextLevelCombiNotValid: List<CombinationPosition> = allNextLevelCombination
+                .filter { combi -> unfilterAndStoreValidArrangement(combi)}
+
+            // TODO check if we need more out condition for that recursive method
+            if (nextLevelCombiNotValid.isNotEmpty() && hasNotReachLastLevel(nextLevelCombiNotValid)) {
+                nextLevel(nextLevelCombiNotValid)
+            }
+
+        }
+
+        private fun unfilterAndStoreValidArrangement(combination: CombinationPosition): Boolean {
+            val arrangement = produceArrangementFromCombination(combination, record)
+            if (isValidArrangement(arrangement)) {
+                validArrangements.add(arrangement)
+                //Here the case an arrangement is valid there is no way than the branch with additional position could be valid
+                return false
+            }
+            return true
+        }
+
+        private fun generateAllNextLevel(combinations: List<CombinationPosition>): List<CombinationPosition> {
+
+            val alreadyExistingCombi: MutableSet<CombinationPosition> = mutableSetOf()
+
+            // We filter here the redundant ex: 1-2 + 3 = 1-2-3 AND 2-3 + 1 = 1-2-3
+            // TODO look if the equals of list is good or if there is need to sort or use another list
+            val nextLevelFiltered = combinations
+                .map { combinationCurrentLevel ->
+                    generateNextLevelsCombi(combinationCurrentLevel)
+                }
+                .flatten()
+                .filter { combinationPosition ->
+                    if (alreadyExistingCombi.contains(combinationPosition)) {
+                        false
+                    }
+                    alreadyExistingCombi.add(combinationPosition)
+                    true
+                }
+
+            return nextLevelFiltered
+        }
+
+        private fun generateNextLevelsCombi(combination: CombinationPosition): List<CombinationPosition> {
+            return initialList.map { pos -> generateCombination(combination, pos) }.filterNotNull()
+        }
+
+        private fun generateCombination(combination: CombinationPosition, pos: Int): CombinationPosition? {
+            // Here we filter the case 1-2 + 2 : which would be redundant with the combi input 1-2
+            if (!combination.listPositions.contains(pos)) {
+                val newListPositions: List<Int> = combination.listPositions + pos
+                return CombinationPosition(newListPositions)
+            }
+            return null
+        }
+
+        private fun hasNotReachLastLevel(nextLevelCombiNotValid: List<CombinationPosition>): Boolean {
+            return nextLevelCombiNotValid.first().listPositions.size != initialList.size
+        }
+
+
+    }
+
 
 }
