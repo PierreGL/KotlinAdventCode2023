@@ -21,21 +21,11 @@ object Day12 {
         val records = File(filepath).readLines().map { line -> extractRecordFromLine(line) }
         val unfoldRecords = records.map { record -> unfoldRecord2(record, 2) }
 
-        val recordsToTreat = records.subList(0, 1) // CHECK 1 2 4 / line 996 idx 995
-        println("unfoldRecordsSub = $recordsToTreat")
-
-//        val sumAllValidV1 =
-//            recordsToTreat.map { unfoldRecord -> ArrangementMatchingProcessor(unfoldRecord).process().count() }.sum()
+        val recordsToTreat = unfoldRecords.subList(0, 6) // CHECK 1 2 4 / line 996 idx 995
 
         val sumAllValidV2 =
-            recordsToTreat.map { unfoldRecord -> ArrangementMatchingProcessor2(unfoldRecord).process().count() }.sum()
+            recordsToTreat.map { unfoldRecord -> ArrangementMatchingCounterProcessor(unfoldRecord).process() }.sum()
 
-//        println("validArrangementList= ${validArrangementList.size}")
-//        validArrangementList.forEach { validArrangement -> println(validArrangement) }
-//
-//        val countMatchingArrangement2 = unfoldRecordsSub
-//            .map { record -> nbValidArrangement(record) }
-//            .sum()
         println("process2: $sumAllValidV2")
     }
 
@@ -44,8 +34,6 @@ object Day12 {
 
         val initialSequenceValues: List<Int> = inputRecord.sequenceCtrl.sequenceValues
 
-//        println("inputRecord= $inputRecord")
-//        println("initialSequenceValues= $initialSequenceValues")
         val unfoldSequenceValues: MutableList<Int> = initialSequenceValues.toMutableList()
 
         for (idx in 2..recordMultiplier) {
@@ -97,7 +85,7 @@ object Day12 {
         val originalValue = record.value
         val stringBuilder = StringBuilder(originalValue)
 
-        combination.listPositions.forEach { position ->
+        combination.listPositionsValues.forEach { position ->
             stringBuilder.setCharAt(position, SpringType.DAMAGED.symbol)
         }
 
@@ -146,34 +134,22 @@ object Day12 {
                 positions.add(position)
                 position = value.indexOf(SpringType.UNKNOWN.symbol, position + 1)
             }
-//            println(positions)
             return positions
         }
     }
 
-    //TODO check if the sorted list solve the problem of comparison
-    private data class CombinationPosition(val listPositions: List<Int>) {
-        val sortedList: List<Int>
-        init {
-            sortedList = listPositions.sorted()
-        }
+    private data class CombinationPosition(val listPositionsValues: List<Int>) {
+        //Represent the index in the initial list of last position of the combination
+        var lastPosIndexInitialList: Int = 0
 
         fun removeOneByIdx(idxToRemove: Int): CombinationPosition {
-            val updatedList = listPositions.filterIndexed { currentIdx: Int, pos: Int -> currentIdx != idxToRemove }
+            val updatedList =
+                listPositionsValues.filterIndexed { currentIdx: Int, pos: Int -> currentIdx != idxToRemove }
             return CombinationPosition(updatedList)
         }
 
-        //Here th contains of Set does not work as expected
-        override fun equals(other: Any?): Boolean {
-            return this.sortedList == other?:sortedList
-        }
-
-        override fun hashCode(): Int {
-            return sortedList.hashCode()
-        }
-
         override fun toString(): String {
-            return "listPositions=$listPositions sortedList=$sortedList"
+            return "list=${listPositionsValues} - lastPosIndexInitialList=$lastPosIndexInitialList"
         }
     }
 
@@ -200,7 +176,10 @@ object Day12 {
         }
 
         override fun toString(): String {
-            return "originalValue=$originalValue - combinationAsDamagedValue=$combinationAsDamagedValue continuousGroups= $continuousGroups sequenceCtrl=$sequenceCtrl"
+            return "originalValue=$originalValue - " +
+                    "combinationAsDamagedValue=$combinationAsDamagedValue - " +
+                    "sequenceCtrl=$sequenceCtrl - " +
+                    "combinationSource=$combinationSource "
         }
     }
 
@@ -228,9 +207,9 @@ object Day12 {
         }
 
         private fun produceChildCombinations(combination: CombinationPosition): List<CombinationPosition> {
-            val childCombinations: MutableList<CombinationPosition> = combination.listPositions
+            val childCombinations: MutableList<CombinationPosition> = combination.listPositionsValues
                 .mapIndexed { idxToRemove: Int, pos: Int -> combination.removeOneByIdx(idxToRemove) }
-                .filter { newChildCombination -> newChildCombination.listPositions.isNotEmpty() }
+                .filter { newChildCombination -> newChildCombination.listPositionsValues.isNotEmpty() }
                 .filter { newChildCombination -> !combinationSet.contains(newChildCombination) }
                 .map { newChildCombination ->
                     combinationSet.add(newChildCombination)
@@ -281,9 +260,9 @@ object Day12 {
         private fun produceValidChildArrangements(arrangement: Arrangement): List<Arrangement> {
             val combination = arrangement.combinationSource
 
-            val childArrangements: MutableList<Arrangement> = combination.listPositions
+            val childArrangements: MutableList<Arrangement> = combination.listPositionsValues
                 .mapIndexed { idxToRemove: Int, pos: Int -> combination.removeOneByIdx(idxToRemove) }
-                .filter { childCombination -> childCombination.listPositions.isNotEmpty() }
+                .filter { childCombination -> childCombination.listPositionsValues.isNotEmpty() }
                 .filter { childCombinationNotEmpty -> !alreadyTreatedCombinationSet.contains(childCombinationNotEmpty) }
                 .map { newChildCombination ->
                     alreadyTreatedCombinationSet.add(newChildCombination)
@@ -308,32 +287,39 @@ object Day12 {
 
     // TODO go reverse direction (map reduce ?) : from small combi to large combi / identify the impossible case to avoid treating all branches
     // TODO HYPO progress by level : each level produce combination made from previous combi and combi unit : eliminate valid combi and impossible combi each level
-    private data class ArrangementMatchingProcessor2(val record: Record) {
-        val validArrangements: MutableList<Arrangement> = mutableListOf()
+    private data class ArrangementMatchingCounterProcessor(val record: Record) {
+        //val validArrangements: MutableList<Arrangement> = mutableListOf()
         val initialList: List<Int>
+        var counterValidArrangements: Long = 0
+
         init {
             initialList = record.unknownSpringPositions
         }
 
-        fun process(): List<Arrangement> {
+        fun process(): Long {
+            println("recordToTreat = $record")
+
             val initialUnitCombination = initialList
-                .map { pos -> CombinationPosition(listOf(pos)) }
-                .filter { combinationPosition -> unfilterAndStoreValidArrangement(combinationPosition) }
+                .mapIndexed { positionIndex, positionValue ->
+                    val unitCombi = CombinationPosition(listOf(positionValue))
+                    unitCombi.lastPosIndexInitialList = positionIndex
+                    unitCombi
+                }
+                .filter { combinationPosition -> unfilterAndCountValidArrangement(combinationPosition) }
 
             nextLevel(initialUnitCombination)
-            println("validArrangements = $validArrangements")
-            return validArrangements
+            println("counterValidArrangements = $counterValidArrangements")
+            //println("validArrangements = $validArrangements")
+            return counterValidArrangements
         }
 
         fun nextLevel(combinationToEvaluate: List<CombinationPosition>) {
-            println("combinationToEvaluate = $combinationToEvaluate")
-
             val allNextLevelCombination: List<CombinationPosition> =
-                generateAllNextLevel(combinationToEvaluate)
+                generateNextLevelsAllCombi(combinationToEvaluate)
             //TODO identify impossible combi ?  And remove them from the filtered list
 
             val nextLevelCombiNotValid: List<CombinationPosition> = allNextLevelCombination
-                .filter { combi -> unfilterAndStoreValidArrangement(combi)}
+                .filter { combi -> unfilterAndCountValidArrangement(combi) }
 
             // TODO check if we need more out condition for that recursive method
             if (nextLevelCombiNotValid.isNotEmpty() && hasNotReachLastLevel(nextLevelCombiNotValid)) {
@@ -342,53 +328,76 @@ object Day12 {
 
         }
 
-        private fun unfilterAndStoreValidArrangement(combination: CombinationPosition): Boolean {
+        private fun unfilterAndCountValidArrangement(combination: CombinationPosition): Boolean {
             val arrangement = produceArrangementFromCombination(combination, record)
             if (isValidArrangement(arrangement)) {
-                validArrangements.add(arrangement)
+                //TODO At the end the valid arrangements does not need to be stored, only counted
+                //validArrangements.add(arrangement)
+                counterValidArrangements++
                 //Here the case an arrangement is valid there is no way than the branch with additional position could be valid
                 return false
             }
             return true
         }
 
-        private fun generateAllNextLevel(combinations: List<CombinationPosition>): List<CombinationPosition> {
+        private fun generateNextLevelsAllCombi(combinations: List<CombinationPosition>): List<CombinationPosition> {
 
-            val alreadyExistingCombi: MutableSet<CombinationPosition> = mutableSetOf()
+            //val alreadyExistingCombi: MutableSet<CombinationPosition> = mutableSetOf()
 
             // We filter here the redundant ex: 1-2 + 3 = 1-2-3 AND 2-3 + 1 = 1-2-3
             // TODO look if the equals of list is good or if there is need to sort or use another list
             val nextLevelFiltered = combinations
-                .map { combinationCurrentLevel ->
-                    generateNextLevelsCombi(combinationCurrentLevel)
-                }
+                .map { combinationCurrentLevel -> generateNextLevelsOneCombi(combinationCurrentLevel) }
                 .flatten()
-                .filter { combinationPosition ->
-                    if (alreadyExistingCombi.contains(combinationPosition)) {
-                        false
-                    }
-                    alreadyExistingCombi.add(combinationPosition)
-                    true
+            /*
+            .filter { combinationPosition ->
+                if (alreadyExistingCombi.contains(combinationPosition)) {
+                    false
                 }
+                alreadyExistingCombi.add(combinationPosition)
+                true
+            }
+            */
+
 
             return nextLevelFiltered
         }
 
-        private fun generateNextLevelsCombi(combination: CombinationPosition): List<CombinationPosition> {
-            return initialList.map { pos -> generateCombination(combination, pos) }.filterNotNull()
+        private fun generateNextLevelsOneCombi(combination: CombinationPosition): List<CombinationPosition> {
+
+            val newCombinationList: MutableList<CombinationPosition> = mutableListOf()
+            // We iterate only from the last position to the end of the initial list
+            //Ex : combi 0-2 : we iterate from 3 to create 0-2-3, 0-2-4... and avoid recreate 0-1-2
+            for (positionIndex: Int in combination.lastPosIndexInitialList + 1..initialList.size - 1) {
+                val positionValue = initialList.get(positionIndex)
+                newCombinationList.add(generateCombination(combination, positionValue, positionIndex))
+            }
+
+            return newCombinationList
         }
 
-        private fun generateCombination(combination: CombinationPosition, pos: Int): CombinationPosition? {
+        private fun generateCombination(
+            combination: CombinationPosition,
+            positionValue: Int,
+            posIndexInInitialList: Int
+        ): CombinationPosition {
             // Here we filter the case 1-2 + 2 : which would be redundant with the combi input 1-2
+            /*
             if (!combination.listPositions.contains(pos)) {
                 val newListPositions: List<Int> = combination.listPositions + pos
                 return CombinationPosition(newListPositions)
             }
             return null
+            */
+            val newListPositions: List<Int> = combination.listPositionsValues + positionValue
+            val newCombi = CombinationPosition(newListPositions)
+            newCombi.lastPosIndexInitialList = posIndexInInitialList
+            return newCombi
+
         }
 
         private fun hasNotReachLastLevel(nextLevelCombiNotValid: List<CombinationPosition>): Boolean {
-            return nextLevelCombiNotValid.first().listPositions.size != initialList.size
+            return nextLevelCombiNotValid.first().listPositionsValues.size != initialList.size
         }
 
 
