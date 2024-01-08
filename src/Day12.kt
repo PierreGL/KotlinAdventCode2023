@@ -474,10 +474,14 @@ object Day12 {
                     unitCombi
                 }
 
+            val combinationZeroChange = CombinationPosition(listOf())
+            val subSequenceNoChange: SubSequence =
+                generateSubSequenceFromCombination(combinationZeroChange, subBlockValue)
 
             val subSequencesLevelOne: List<SubSequence> =
                 generateSubSequencesFromCombinationList(initialUnitCombination, subBlockValue)
 
+            subSequenceList.add(subSequenceNoChange)
             subSequenceList.addAll(subSequencesLevelOne)
 
             nextLevel(initialUnitCombination, subBlock, subSequenceList)
@@ -532,7 +536,7 @@ object Day12 {
 
             subSequences.addAll(subSequencesThisLevel)
 
-            // TODO check out condition
+            // TODO check exit condition
             if (allNextLevelCombination.isNotEmpty() && hasNotReachLastLevel(allNextLevelCombination, subBlock)) {
                 nextLevel(allNextLevelCombination, subBlock, subSequences)
             }
