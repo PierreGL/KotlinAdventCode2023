@@ -8,7 +8,7 @@ object Day12 {
     }
 
     private fun process1(filepath: String) {
-        val records = File(filepath).readLines().map { line -> extractRecordFromLine(line) }
+        val records = File(filepath).readLines().map { line -> extractRecordFromLine(line, null) }
 
         //val records2 = records.subList(0, 1) // CHECK 1 2 4 / line 996 idx 995
         val countMatchingArrangement1 = records
@@ -18,18 +18,31 @@ object Day12 {
     }
 
     private fun process2(filepath: String) {
-        val records = File(filepath).readLines().map { line -> extractRecordFromLine(line) }
-        val unfoldRecords = records.map { record -> unfoldRecord2(record, 5) }
+        val records = File(filepath).readLines().map { line -> extractRecordFromLine(line, null) }
+        val unfoldRecords = records.map { record -> unfoldRecord2(record, 5, 10) }
 
-        val recordsToTreat = unfoldRecords.subList(2, 3) // CHECK 1 2 4 / line 996 idx 995
+        val recordsToTreat = unfoldRecords.subList(0, 6) // CHECK 1 2 4 / line 996 idx 995
 
-        val sumAllValidV2 =
-            recordsToTreat.map { unfoldRecord -> ArrangementMatchingCounterProcessor(unfoldRecord).process() }.sum()
+//        val sumAllValidV2 =
+//            recordsToTreat.map { unfoldRecord -> ArrangementMatchingCounterProcessor(unfoldRecord).process() }.sum()
 
-        println("process2: $sumAllValidV2")
+        val recordResultList: List<RecordResult> =
+            recordsToTreat.map { unfoldRecord -> RecordSubBlockProcessor(unfoldRecord).processRecordResult() }
+
+        recordResultList.forEach { recordResult ->
+            println("recordResult= $recordResult")
+            recordResult.subBlockResults.forEach { subBlockResult ->
+                println("subBlockResult= $subBlockResult")
+
+            }
+
+        }
+
+
+//        println("process2: $sumAllValidV2")
     }
 
-    private fun unfoldRecord2(inputRecord: Record, recordMultiplier: Int): Record {
+    private fun unfoldRecord2(inputRecord: Record, recordMultiplier: Int, sizeBlock: Int): Record {
         val unfoldValueBuilder = StringBuilder(inputRecord.value)
 
         val initialSequenceValues: List<Int> = inputRecord.sequenceCtrl.sequenceValues
@@ -44,10 +57,10 @@ object Day12 {
         val unfoldValue = unfoldValueBuilder.toString()
         val unfoldSequenceCtrl = Sequence(unfoldSequenceValues.toList())
 
-        return Record(unfoldValue, unfoldSequenceCtrl)
+        return Record(unfoldValue, unfoldSequenceCtrl, sizeBlock)
     }
 
-    private fun extractRecordFromLine(line: String): Record {
+    private fun extractRecordFromLine(line: String, sizeblock: Int?): Record {
         val lineList = line.split(" ")
 
         val recordValue = lineList.get(0)
@@ -57,7 +70,7 @@ object Day12 {
         val realSequenceContinuousGroupList = realSequenceContinuousGroupStr.split(",")
         val correctSequenceList: List<Int> = realSequenceContinuousGroupList.map { str -> str.toInt() }
 
-        return Record(recordValue, Sequence(correctSequenceList))
+        return Record(recordValue, Sequence(correctSequenceList), sizeblock)
     }
 
     private fun nbValidArrangement(record: Record): Int {
@@ -90,7 +103,7 @@ object Day12 {
         }
 
         // first version with
-        val combinationAsDamagedValue = stringBuilder.toString()
+        val combinationAsDamagedValue: String = stringBuilder.toString()
 
         return Arrangement(originalValue, combinationAsDamagedValue, record.sequenceCtrl, combination)
     }
@@ -146,8 +159,6 @@ object Day12 {
 //        }
 
 
-
-
         // RULE of higher certainly correct but not very efficient to eliminate possibilities
         val higherImpossibleValue =
             subSequence.any { subSequuenceValue -> subSequuenceValue > arrangement.sequenceCtrl.higherValue }
@@ -164,24 +175,36 @@ object Day12 {
         return group.value.length == sequence.sequenceValues[groupIdx]
     }
 
-    private data class Record(val value: String, val sequenceCtrl: Sequence) {
-        val unknownSpringPositions: List<Int>
+    private fun extractUnknownSpringPositions(value: String): List<Int> {
+        val positions = mutableListOf<Int>()
+        var position = value.indexOf(SpringType.UNKNOWN.symbol)
+        while (position != -1) {
+            positions.add(position)
+            position = value.indexOf(SpringType.UNKNOWN.symbol, position + 1)
+        }
+        return positions
+    }
+
+    private data class Record(val value: String, val sequenceCtrl: Sequence, val sizeBlock: Int?) {
+        val unknownSpringPositions: List<Int> = extractUnknownSpringPositions(value)
+        val subBlocks: List<SubBlock> = generateSubBlocks()
 
         //TODO initialize the list of subBlocks
 
-        init {
-            unknownSpringPositions = extractUnknownPositionsSpring()
+        private fun generateSubBlocks(): List<SubBlock> {
+            if (sizeBlock != null) {
+                return value.chunked(sizeBlock).map { blockValue -> SubBlock(blockValue) }
+            }
+            return listOf()
         }
 
-        private fun extractUnknownPositionsSpring(): List<Int> {
-            val positions = mutableListOf<Int>()
-            var position = value.indexOf(SpringType.UNKNOWN.symbol)
-            while (position != -1) {
-                positions.add(position)
-                position = value.indexOf(SpringType.UNKNOWN.symbol, position + 1)
-            }
-            return positions
+        override fun toString(): String {
+            return "RECORD value=$value - sequenceCtrl=$sequenceCtrl subBlocks=$subBlocks"
         }
+    }
+
+    private data class SubBlock(val value: String) {
+        val unknownSpringPositions: List<Int> = extractUnknownSpringPositions(value)
     }
 
     private data class CombinationPosition(val listPositionsValues: List<Int>) {
@@ -376,7 +399,7 @@ object Day12 {
 
         private fun unfilterAndCountValidArrangement(combination: CombinationPosition): Boolean {
             val arrangement: Arrangement = produceArrangementFromCombination(combination, record)
-            println("check arrangement $arrangement")
+//            println("check arrangement $arrangement")
             if (isValidArrangement(arrangement)) {
                 println("valid $arrangement")
                 //validArrangements.add(arrangement)
@@ -421,7 +444,6 @@ object Day12 {
             val newCombi = CombinationPosition(newListPositions)
             newCombi.lastPosIndexInitialList = posIndexInInitialList
             return newCombi
-
         }
 
         private fun hasNotReachLastLevel(nextLevelCombiNotValid: List<CombinationPosition>): Boolean {
@@ -429,25 +451,169 @@ object Day12 {
         }
     }
 
-
-    // TODO implement
     /**
      * For each subBlock of each record produces the list of sequences possible.
      * Each sequence has a list of int and a mergableBefore and a mergableAfter info
      * Produce a recordResult or List<SubBlockResult> ?
      * */
-    private data class SubBlockProcessor(val record: Record) {
+    private data class RecordSubBlockProcessor(val record: Record) {
+        fun processRecordResult(): RecordResult {
+            val subBlockResults: List<SubBlockResult> = record.subBlocks.mapIndexed { blockIdx, subBlock ->
+                generateSubBlockResult(blockIdx, subBlock)
+            }
+            return RecordResult(subBlockResults)
+        }
 
+        fun generateSubBlockResult(blockIdx: Int, subBlock: SubBlock): SubBlockResult {
+
+            val subSequenceList: MutableList<SubSequence> = mutableListOf()
+            val subBlockValue = subBlock.value
+
+            val initialUnitCombination: List<CombinationPosition> = subBlock.unknownSpringPositions
+                .mapIndexed { positionIndex, positionValue ->
+                    val unitCombi = CombinationPosition(listOf(positionValue))
+                    unitCombi.lastPosIndexInitialList = positionIndex
+                    unitCombi
+                }
+
+
+            val subSequencesLevelOne: List<SubSequence> =
+                generateSubSequencesFromCombinationList(initialUnitCombination, subBlockValue)
+
+            subSequenceList.addAll(subSequencesLevelOne)
+
+            nextLevel(initialUnitCombination, subBlock, subSequenceList)
+
+
+            return SubBlockResult((blockIdx + 1).toString(), subSequenceList)
+        }
+
+        fun generateSubSequencesFromCombinationList(
+            combinations: List<CombinationPosition>,
+            subBlockValue: String
+        ): List<SubSequence> {
+            return combinations.map { combination -> generateSubSequenceFromCombination(combination, subBlockValue) }
+        }
+
+        fun generateSubSequenceFromCombination(combination: CombinationPosition, blockValue: String): SubSequence {
+            val originalValue = blockValue
+            val stringBuilder = StringBuilder(originalValue)
+
+            combination.listPositionsValues.forEach { position ->
+                stringBuilder.setCharAt(position, SpringType.DAMAGED.symbol)
+            }
+
+            val combinationAsDamagedValue: String = stringBuilder.toString()
+
+            val remainingUnknownAsOperationalValue: String =
+                combinationAsDamagedValue.replace(SpringType.UNKNOWN.symbol, SpringType.OPERATIONAL.symbol)
+
+            val mergableBefore: Boolean = remainingUnknownAsOperationalValue.first() == SpringType.DAMAGED.symbol
+            val mergableAfter: Boolean = remainingUnknownAsOperationalValue.last() == SpringType.DAMAGED.symbol
+
+
+            val listGroupString: List<String> = remainingUnknownAsOperationalValue.split(".")
+            val continuousGroups: List<ContinuousGroup> = listGroupString
+                .filter { str -> str.isNotBlank() }
+                .map { str -> ContinuousGroup(str) }
+
+            val subSequenceValues: List<Int> = continuousGroups.map { continuousGroup -> continuousGroup.value.length }
+
+            return SubSequence(subSequenceValues, mergableBefore, mergableAfter)
+        }
+
+        fun nextLevel(
+            combinationToEvaluate: List<CombinationPosition>,
+            subBlock: SubBlock,
+            subSequences: MutableList<SubSequence>
+        ) {
+            val allNextLevelCombination: List<CombinationPosition> =
+                generateNextLevelsAllCombi(combinationToEvaluate, subBlock)
+
+            val subSequencesThisLevel = generateSubSequencesFromCombinationList(allNextLevelCombination, subBlock.value)
+
+            subSequences.addAll(subSequencesThisLevel)
+
+            // TODO check out condition
+            if (allNextLevelCombination.isNotEmpty() && hasNotReachLastLevel(allNextLevelCombination, subBlock)) {
+                nextLevel(allNextLevelCombination, subBlock, subSequences)
+            }
+        }
+
+        private fun generateNextLevelsAllCombi(
+            combinations: List<CombinationPosition>,
+            subBlock: SubBlock
+        ): List<CombinationPosition> {
+
+            val nextLevelFiltered = combinations
+                .map { combinationCurrentLevel -> generateNextLevelsOneCombi(combinationCurrentLevel, subBlock) }
+                .flatten()
+
+            return nextLevelFiltered
+        }
+
+        private fun generateNextLevelsOneCombi(
+            combination: CombinationPosition,
+            subBlock: SubBlock
+        ): List<CombinationPosition> {
+            val initialList = subBlock.unknownSpringPositions
+            val newCombinationList: MutableList<CombinationPosition> = mutableListOf()
+            // We iterate only from the last position to the end of the initial list
+            //Ex : combi 0-2 : we iterate from 3 to create 0-2-3, 0-2-4... and avoid recreate 0-1-2
+            for (positionIndex: Int in combination.lastPosIndexInitialList + 1..initialList.size - 1) {
+                val positionValue = initialList.get(positionIndex)
+                newCombinationList.add(generateCombination(combination, positionValue, positionIndex))
+            }
+
+            return newCombinationList
+        }
+
+        private fun generateCombination(
+            combination: CombinationPosition,
+            positionValue: Int,
+            posIndexInInitialList: Int
+        ): CombinationPosition {
+            val newListPositions: List<Int> = combination.listPositionsValues + positionValue
+            val newCombi = CombinationPosition(newListPositions)
+            newCombi.lastPosIndexInitialList = posIndexInInitialList
+            return newCombi
+        }
+
+        private fun hasNotReachLastLevel(
+            nextLevelCombiNotValid: List<CombinationPosition>,
+            subBlock: SubBlock
+        ): Boolean {
+            return nextLevelCombiNotValid.first().listPositionsValues.size != subBlock.unknownSpringPositions.size
+        }
     }
 
     //TODO implement
     /**
-     * For each RecordResult (or List<SubBlockResult>). Evaluate possible group combination.
-     * Check each step to avoid next useless evaluations
+     * For each RecordResult. Evaluate possible combination of sequence for each block.
+     * At each block retain only eligible sequence which match the begining of the sequence control.
+     * Consider the particular case of mergable after it can match even the last element of the subsequence is smaller
+     * Ex:
+     * 1, 3, 1 is eligible (can be concatenate)
+     * 1,3,1,2 is eligible : still compatible to 1,3,1,6 (last element can be merged and obtain 6)
+     * But 1,3,1,7 is not (last too high)
+     * And 2,3,1.. is not (one element missmatch)
      * */
-    private class CheckSequenceProcessor {
+    private class BlockSequenceAggregatorProcessor {
 
     }
 
+    private data class RecordResult(val subBlockResults: List<SubBlockResult>)
+
+    private data class SubBlockResult(val blockName: String, val subSequence: List<SubSequence>) {
+        override fun toString(): String {
+            return "blockName=$blockName - subSeqNumber=${subSequence.size} - subSequence=$subSequence"
+        }
+    }
+
+    private data class SubSequence(
+        val sequenceValues: List<Int>,
+        val mergableBefore: Boolean,
+        val mergableAfter: Boolean
+    )
 
 }
