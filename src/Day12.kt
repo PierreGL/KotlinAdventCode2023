@@ -588,13 +588,14 @@ object Day12 {
     //TODO implement
     /**
      * For each RecordResult. Evaluate possible combination of sequence for each block.
-     * At each block retain only eligible sequence which match the begining of the sequence control.
-     * Consider the particular case of mergable after it can match even the last element of the subsequence is smaller
-     * Ex:
-     * 1, 3, 1 is eligible (can be concatenate)
+     * Aggregate eligible sequence of each block together.
+     * At each block retain only eligible sequence which match the beginning of the sequence control.
+     * Consider the particular case of subSequence mergableAfter it is eligible even the last element of the subsequence is smaller
+     * Ex: For seq control 1,3,1,6
+     * 1, 3, 1 is eligible (can be concatenated)
      * 1,3,1,2 is eligible : still compatible to 1,3,1,6 (last element can be merged and obtain 6)
-     * But 1,3,1,7 is not (last too high)
-     * And 2,3,1.. is not (one element missmatch)
+     * 1,3,1,7 is not eligible (last too high)
+     * 2,3,1 is not eligible (one element missmatch)
      * */
     private class BlockSequenceAggregatorProcessor {
 
