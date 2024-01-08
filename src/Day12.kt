@@ -33,9 +33,7 @@ object Day12 {
             println("recordResult= $recordResult")
             recordResult.subBlockResults.forEach { subBlockResult ->
                 println("subBlockResult= $subBlockResult")
-
             }
-
         }
 
 
