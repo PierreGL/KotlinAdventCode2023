@@ -19,9 +19,9 @@ object Day12 {
 
     private fun process2(filepath: String) {
         val records = File(filepath).readLines().map { line -> extractRecordFromLine(line) }
-        val unfoldRecords = records.map { record -> unfoldRecord2(record, 2) }
+        val unfoldRecords = records.map { record -> unfoldRecord2(record, 5) }
 
-        val recordsToTreat = unfoldRecords.subList(0, 6) // CHECK 1 2 4 / line 996 idx 995
+        val recordsToTreat = unfoldRecords.subList(2, 3) // CHECK 1 2 4 / line 996 idx 995
 
         val sumAllValidV2 =
             recordsToTreat.map { unfoldRecord -> ArrangementMatchingCounterProcessor(unfoldRecord).process() }.sum()
@@ -112,6 +112,50 @@ object Day12 {
         return allSameSequence
     }
 
+    /**
+     * An arrangement is impossible if the subSequence is not valid AND cannot become valid with additional sequence
+     * element.
+     * Ex : seqControl : 1,3,1
+     * The arrangement 2, 1 is impossible. Return true.
+     * The arrangement 1, 3 is not valid but not impossible. Return false.
+     * */
+    private fun isImpossible(arrangement: Arrangement): Boolean {
+
+        val subSequence: List<Int> = arrangement.subSequence
+        val ctrlSequenceValue: List<Int> = arrangement.sequenceCtrl.sequenceValues
+
+        //RULE of size not correct : adding new change can reduce the number of group so the size of the subsequence
+        //RULE of subSequence element higher of the ctrlSeq element is not correct : adding new change can move the position of the higher
+
+
+//        // If the subSequence is bigger it is impossible
+//        if (subSequence.size > ctrlSequence.size) {
+//            return true
+//        } else {
+//            val ctrlSequenceToCompare = ctrlSequence.subList(0, subSequence.size)
+//            subSequence.mapIndexed { subSequenceIdx, subSequenceValue ->
+//                val ctrlSequenceValue = ctrlSequenceToCompare[subSequenceIdx]
+//                // If one of the subSequence value exceed the ctrl sequence value at the same position.
+//                // It makes that combination and all its child impossible
+//                if (subSequenceValue > ctrlSequenceValue) {
+//                    return true
+//                }
+//            }
+//
+//            return ctrlSequenceToCompare != subSequence
+//        }
+
+
+
+
+        // RULE of higher certainly correct but not very efficient to eliminate possibilities
+        val higherImpossibleValue =
+            subSequence.any { subSequuenceValue -> subSequuenceValue > arrangement.sequenceCtrl.higherValue }
+
+
+        return higherImpossibleValue
+    }
+
     private fun areGroupsAndSequenceSameSize(continuousGroups: List<ContinuousGroup>, sequence: Sequence): Boolean {
         return continuousGroups.size == sequence.sequenceValues.size
     }
@@ -122,6 +166,8 @@ object Day12 {
 
     private data class Record(val value: String, val sequenceCtrl: Sequence) {
         val unknownSpringPositions: List<Int>
+
+        //TODO initialize the list of subBlocks
 
         init {
             unknownSpringPositions = extractUnknownPositionsSpring()
@@ -153,7 +199,9 @@ object Day12 {
         }
     }
 
-    private data class Sequence(val sequenceValues: List<Int>)
+    private data class Sequence(val sequenceValues: List<Int>) {
+        val higherValue: Int = sequenceValues.max()
+    }
 
     private data class ContinuousGroup(val value: String)
 
@@ -164,6 +212,8 @@ object Day12 {
         val combinationSource: CombinationPosition
     ) {
         val continuousGroups: List<ContinuousGroup>
+        val subSequence: List<Int>
+
 
         init {
             val remainingUnknownAsOperationalValue: String =
@@ -173,13 +223,14 @@ object Day12 {
             continuousGroups = listGroupString
                 .filter { str -> str.isNotBlank() }
                 .map { str -> ContinuousGroup(str) }
+
+            subSequence = continuousGroups.map { continuousGroup -> continuousGroup.value.length }
         }
 
         override fun toString(): String {
-            return "originalValue=$originalValue - " +
-                    "combinationAsDamagedValue=$combinationAsDamagedValue - " +
-                    "sequenceCtrl=$sequenceCtrl - " +
-                    "combinationSource=$combinationSource "
+            return "combinationAsDamagedValue=$combinationAsDamagedValue - " +
+                    "combinationSource=$combinationSource " +
+                    "subSequence=$subSequence"
         }
     }
 
@@ -197,7 +248,6 @@ object Day12 {
         fun process(): List<CombinationPosition> {
             val firstFullCombination = CombinationPosition(initialList)
             val childCombinations: List<CombinationPosition> = produceChildCombinations(firstFullCombination)
-            //TODO check is possible
             val lastEmptyCombination = CombinationPosition(listOf())
 
             val allCombination: List<CombinationPosition> =
@@ -285,8 +335,6 @@ object Day12 {
 
     }
 
-    // TODO go reverse direction (map reduce ?) : from small combi to large combi / identify the impossible case to avoid treating all branches
-    // TODO HYPO progress by level : each level produce combination made from previous combi and combi unit : eliminate valid combi and impossible combi each level
     private data class ArrangementMatchingCounterProcessor(val record: Record) {
         //val validArrangements: MutableList<Arrangement> = mutableListOf()
         val initialList: List<Int>
@@ -316,12 +364,10 @@ object Day12 {
         fun nextLevel(combinationToEvaluate: List<CombinationPosition>) {
             val allNextLevelCombination: List<CombinationPosition> =
                 generateNextLevelsAllCombi(combinationToEvaluate)
-            //TODO identify impossible combi ?  And remove them from the filtered list
 
             val nextLevelCombiNotValid: List<CombinationPosition> = allNextLevelCombination
                 .filter { combi -> unfilterAndCountValidArrangement(combi) }
 
-            // TODO check if we need more out condition for that recursive method
             if (nextLevelCombiNotValid.isNotEmpty() && hasNotReachLastLevel(nextLevelCombiNotValid)) {
                 nextLevel(nextLevelCombiNotValid)
             }
@@ -329,12 +375,16 @@ object Day12 {
         }
 
         private fun unfilterAndCountValidArrangement(combination: CombinationPosition): Boolean {
-            val arrangement = produceArrangementFromCombination(combination, record)
+            val arrangement: Arrangement = produceArrangementFromCombination(combination, record)
+            println("check arrangement $arrangement")
             if (isValidArrangement(arrangement)) {
-                //TODO At the end the valid arrangements does not need to be stored, only counted
+                println("valid $arrangement")
                 //validArrangements.add(arrangement)
                 counterValidArrangements++
                 //Here the case an arrangement is valid there is no way than the branch with additional position could be valid
+                return false
+            } else if (isImpossible(arrangement)) {
+                println("Impossible $arrangement")
                 return false
             }
             return true
@@ -342,23 +392,9 @@ object Day12 {
 
         private fun generateNextLevelsAllCombi(combinations: List<CombinationPosition>): List<CombinationPosition> {
 
-            //val alreadyExistingCombi: MutableSet<CombinationPosition> = mutableSetOf()
-
-            // We filter here the redundant ex: 1-2 + 3 = 1-2-3 AND 2-3 + 1 = 1-2-3
-            // TODO look if the equals of list is good or if there is need to sort or use another list
             val nextLevelFiltered = combinations
                 .map { combinationCurrentLevel -> generateNextLevelsOneCombi(combinationCurrentLevel) }
                 .flatten()
-            /*
-            .filter { combinationPosition ->
-                if (alreadyExistingCombi.contains(combinationPosition)) {
-                    false
-                }
-                alreadyExistingCombi.add(combinationPosition)
-                true
-            }
-            */
-
 
             return nextLevelFiltered
         }
@@ -381,14 +417,6 @@ object Day12 {
             positionValue: Int,
             posIndexInInitialList: Int
         ): CombinationPosition {
-            // Here we filter the case 1-2 + 2 : which would be redundant with the combi input 1-2
-            /*
-            if (!combination.listPositions.contains(pos)) {
-                val newListPositions: List<Int> = combination.listPositions + pos
-                return CombinationPosition(newListPositions)
-            }
-            return null
-            */
             val newListPositions: List<Int> = combination.listPositionsValues + positionValue
             val newCombi = CombinationPosition(newListPositions)
             newCombi.lastPosIndexInitialList = posIndexInInitialList
@@ -399,7 +427,25 @@ object Day12 {
         private fun hasNotReachLastLevel(nextLevelCombiNotValid: List<CombinationPosition>): Boolean {
             return nextLevelCombiNotValid.first().listPositionsValues.size != initialList.size
         }
+    }
 
+
+    // TODO implement
+    /**
+     * For each subBlock of each record produces the list of sequences possible.
+     * Each sequence has a list of int and a mergableBefore and a mergableAfter info
+     * Produce a recordResult or List<SubBlockResult> ?
+     * */
+    private data class SubBlockProcessor(val record: Record) {
+
+    }
+
+    //TODO implement
+    /**
+     * For each RecordResult (or List<SubBlockResult>). Evaluate possible group combination.
+     * Check each step to avoid next useless evaluations
+     * */
+    private class CheckSequenceProcessor {
 
     }
 
