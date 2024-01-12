@@ -621,7 +621,7 @@ object Day12 {
                 recordChunked.getBlockByName(firstBlock.blockName + 1)
             )
 
-            println("allEligibleSubSequences=$allEligibleSubSequences")
+//            println("allEligibleSubSequences=$allEligibleSubSequences")
             println("allEligibleSubSequences SIZE=${allEligibleSubSequences.size}")
             return allEligibleSubSequences.size.toLong()
 
@@ -632,23 +632,24 @@ object Day12 {
             currentBlock: SubBlockResult
         ): List<SubSequence> {
             println("#### currentBlock=$currentBlock")
-            val newAggregatedSubSequences: List<SubSequence> = aggregatedSubSequence
+            val newEligibleAggregatedSubSequences: List<SubSequence> = aggregatedSubSequence
                 .map { leftSubSequence ->
                     currentBlock.subSequence
                         .map { rightSubSequence -> leftSubSequence.concatenateSubSequences(rightSubSequence) }
                         .filter { concatenatedSequence -> checkEligibleSequence(concatenatedSequence) }
                 }.flatten()
 
-            println("newAggregatedSubSequences=$newAggregatedSubSequences")
+//            println("newAggregatedSubSequences=$newAggregatedSubSequences")
 
 
             if (!recordChunked.isLastBlock(currentBlock.blockName)) {
                 return aggregateNextBlock(
-                    newAggregatedSubSequences,
+                    newEligibleAggregatedSubSequences,
                     recordChunked.getBlockByName(currentBlock.blockName + 1)
                 )
             } else {
-                return newAggregatedSubSequences
+                return newEligibleAggregatedSubSequences
+//                    .filter { subSequence -> subSequence.sequenceValues.isNotEmpty() }
             }
         }
 
@@ -661,17 +662,18 @@ object Day12 {
             var eligible: Boolean
             val sequenceValues = subSequence.sequenceValues
             val sequenceValuesCtrl = recordChunked.sequenceCtrl.sequenceValues
+
             if (sequenceValues.size > sequenceValuesCtrl.size) {
                 eligible = false
             } else {
-                val sequenceValuesExtractButLast = sequenceValuesCtrl.subList(0, sequenceValues.size - 1)
                 println("----")
                 println("subSequence= $subSequence")
-                println("sequenceValuesCtrl=$sequenceValuesCtrl sequenceValuesExtractButLast=$sequenceValuesExtractButLast")
+                val sequenceValuesExtractButLast = sequenceValuesCtrl.subList(0, sequenceValues.size - 1)
+//                    println("sequenceValuesCtrl=$sequenceValuesCtrl sequenceValuesExtractButLast=$sequenceValuesExtractButLast")
                 // TODO case empty list ?
                 // TODO case list of 1 ?
                 val sequenceValuesButLast = sequenceValues.subList(0, sequenceValues.size - 1)
-                println("sequenceValuesButLast =$sequenceValuesButLast")
+//                    println("sequenceValuesButLast =$sequenceValuesButLast")
 
                 // We compare one by one the first element of each sequence (except the last)
                 if (sequenceValuesButLast != sequenceValuesExtractButLast) {
