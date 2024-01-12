@@ -1,4 +1,6 @@
 import java.io.File
+import java.lang.RuntimeException
+import java.util.stream.Collectors
 
 object Day12 {
     fun process(filepath: String) {
@@ -21,23 +23,30 @@ object Day12 {
         val records = File(filepath).readLines().map { line -> extractRecordFromLine(line, null) }
         val unfoldRecords = records.map { record -> unfoldRecord2(record, 5, 10) }
 
-        val recordsToTreat = unfoldRecords.subList(0, 6) // CHECK 1 2 4 / line 996 idx 995
+        val recordsToTreat = unfoldRecords.subList(0, 2) // CHECK 1 2 4 / line 996 idx 995
 
 //        val sumAllValidV2 =
 //            recordsToTreat.map { unfoldRecord -> ArrangementMatchingCounterProcessor(unfoldRecord).process() }.sum()
 
-        val recordResultList: List<RecordResult> =
+        val recordChunkedList: List<RecordChunked> =
             recordsToTreat.map { unfoldRecord -> RecordSubBlockProcessor(unfoldRecord).processRecordResult() }
 
-        recordResultList.forEach { recordResult ->
-            println("recordResult= $recordResult")
-            recordResult.subBlockResults.forEach { subBlockResult ->
-                println("subBlockResult= $subBlockResult")
-            }
-        }
+        val totalCountValidArrangement = recordChunkedList
+            .map { recordChunked -> RecordBlockSequenceAggregatorProcessor(recordChunked).process() }
+            .sum()
+
+//        recordChunkedList.forEach { recordResult ->
+//            println("recordResult= $recordResult")
+//            recordResult.subBlockResults.forEach { subBlockResult ->
+//                println("subBlockResult= $subBlockResult")
+//                subBlockResult.subSequence.forEach { subSeq ->
+//                    println("subSequence= $subSeq")
+//                }
+//            }
+//        }
 
 
-//        println("process2: $sumAllValidV2")
+        println("process2: $totalCountValidArrangement")
     }
 
     private fun unfoldRecord2(inputRecord: Record, recordMultiplier: Int, sizeBlock: Int): Record {
@@ -455,11 +464,11 @@ object Day12 {
      * Produce a recordResult or List<SubBlockResult> ?
      * */
     private data class RecordSubBlockProcessor(val record: Record) {
-        fun processRecordResult(): RecordResult {
+        fun processRecordResult(): RecordChunked {
             val subBlockResults: List<SubBlockResult> = record.subBlocks.mapIndexed { blockIdx, subBlock ->
                 generateSubBlockResult(blockIdx, subBlock)
             }
-            return RecordResult(subBlockResults)
+            return RecordChunked(subBlockResults, record.sequenceCtrl)
         }
 
         fun generateSubBlockResult(blockIdx: Int, subBlock: SubBlock): SubBlockResult {
@@ -475,19 +484,19 @@ object Day12 {
                 }
 
             val combinationZeroChange = CombinationPosition(listOf())
-            val subSequenceNoChange: SubSequence =
+            val subSequenceLevelZero: SubSequence =
                 generateSubSequenceFromCombination(combinationZeroChange, subBlockValue)
 
             val subSequencesLevelOne: List<SubSequence> =
                 generateSubSequencesFromCombinationList(initialUnitCombination, subBlockValue)
 
-            subSequenceList.add(subSequenceNoChange)
+            subSequenceList.add(subSequenceLevelZero)
             subSequenceList.addAll(subSequencesLevelOne)
 
             nextLevel(initialUnitCombination, subBlock, subSequenceList)
 
 
-            return SubBlockResult((blockIdx + 1).toString(), subSequenceList)
+            return SubBlockResult(blockIdx + 1, subSequenceList)
         }
 
         fun generateSubSequencesFromCombinationList(
@@ -589,7 +598,6 @@ object Day12 {
         }
     }
 
-    //TODO implement
     /**
      * For each RecordResult. Evaluate possible combination of sequence for each block.
      * Aggregate eligible sequence of each block together.
@@ -601,13 +609,106 @@ object Day12 {
      * 1,3,1,7 is not eligible (last too high)
      * 2,3,1 is not eligible (one element missmatch)
      * */
-    private class BlockSequenceAggregatorProcessor {
+    private class RecordBlockSequenceAggregatorProcessor(val recordChunked: RecordChunked) {
+
+        fun process(): Long {
+            println("#### recordChunked=$recordChunked")
+            val firstBlock = recordChunked.getBlockByName(1)
+            val eligibleSubSequenceFirstBlock = filterEligibleSequences(firstBlock.subSequence)
+            println("#### eligibleSubSequenceFirstBlock= $eligibleSubSequenceFirstBlock")
+            val allEligibleSubSequences: List<SubSequence> = aggregateNextBlock(
+                eligibleSubSequenceFirstBlock,
+                recordChunked.getBlockByName(firstBlock.blockName + 1)
+            )
+
+            println("allEligibleSubSequences=$allEligibleSubSequences")
+            println("allEligibleSubSequences SIZE=${allEligibleSubSequences.size}")
+            return allEligibleSubSequences.size.toLong()
+
+        }
+
+        private fun aggregateNextBlock(
+            aggregatedSubSequence: List<SubSequence>,
+            currentBlock: SubBlockResult
+        ): List<SubSequence> {
+            println("#### currentBlock=$currentBlock")
+            val newAggregatedSubSequences: List<SubSequence> = aggregatedSubSequence
+                .map { leftSubSequence ->
+                    currentBlock.subSequence
+                        .map { rightSubSequence -> leftSubSequence.concatenateSubSequences(rightSubSequence) }
+                        .filter { concatenatedSequence -> checkEligibleSequence(concatenatedSequence) }
+                }.flatten()
+
+            println("newAggregatedSubSequences=$newAggregatedSubSequences")
+
+
+            if (!recordChunked.isLastBlock(currentBlock.blockName)) {
+                return aggregateNextBlock(
+                    newAggregatedSubSequences,
+                    recordChunked.getBlockByName(currentBlock.blockName + 1)
+                )
+            } else {
+                return newAggregatedSubSequences
+            }
+        }
+
+        private fun filterEligibleSequences(subSequences: List<SubSequence>): List<SubSequence> {
+            return subSequences.filter { subSequence -> checkEligibleSequence(subSequence) }
+        }
+
+        private fun checkEligibleSequence(subSequence: SubSequence): Boolean {
+
+            var eligible: Boolean
+            val sequenceValues = subSequence.sequenceValues
+            val sequenceValuesCtrl = recordChunked.sequenceCtrl.sequenceValues
+            if (sequenceValues.size > sequenceValuesCtrl.size) {
+                eligible = false
+            } else {
+                val sequenceValuesExtractButLast = sequenceValuesCtrl.subList(0, sequenceValues.size - 1)
+                println("----")
+                println("subSequence= $subSequence")
+                println("sequenceValuesCtrl=$sequenceValuesCtrl sequenceValuesExtractButLast=$sequenceValuesExtractButLast")
+                // TODO case empty list ?
+                // TODO case list of 1 ?
+                val sequenceValuesButLast = sequenceValues.subList(0, sequenceValues.size - 1)
+                println("sequenceValuesButLast =$sequenceValuesButLast")
+
+                // We compare one by one the first element of each sequence (except the last)
+                if (sequenceValuesButLast != sequenceValuesExtractButLast) {
+                    eligible = false
+                } else {
+                    val sequenceCtrlExtractLast: Int = sequenceValuesCtrl.get(sequenceValues.size - 1);
+                    val sequenceValueLast: Int = sequenceValues.last()
+                    if (subSequence.mergableAfter) {
+                        // If mergable : particular case : it is eligible
+                        eligible = sequenceValueLast <= sequenceCtrlExtractLast
+                    } else {
+                        // If sequence not mergable the last like the other must be equal to the sequence ctrl
+                        eligible = sequenceValueLast == sequenceCtrlExtractLast
+                    }
+                }
+            }
+            println("eligible=$eligible")
+
+            return eligible
+        }
+    }
+
+    private data class RecordChunked(val subBlockResults: List<SubBlockResult>, val sequenceCtrl: Sequence) {
+        val mapByName: Map<Int, SubBlockResult> =
+            subBlockResults.stream().collect(Collectors.toMap({ sbr -> sbr.blockName }, { sbr -> sbr }))
+
+        fun getBlockByName(blockName: Int): SubBlockResult {
+            return mapByName.get(blockName) ?: throw RuntimeException("Name does not exist $blockName")
+        }
+
+        fun isLastBlock(name: Int): Boolean {
+            return name == subBlockResults.size
+        }
 
     }
 
-    private data class RecordResult(val subBlockResults: List<SubBlockResult>)
-
-    private data class SubBlockResult(val blockName: String, val subSequence: List<SubSequence>) {
+    private data class SubBlockResult(val blockName: Int, val subSequence: List<SubSequence>) {
         override fun toString(): String {
             return "blockName=$blockName - subSeqNumber=${subSequence.size} - subSequence=$subSequence"
         }
@@ -617,6 +718,23 @@ object Day12 {
         val sequenceValues: List<Int>,
         val mergableBefore: Boolean,
         val mergableAfter: Boolean
-    )
+    ) {
+        fun concatenateSubSequences(rightSubSequence: SubSequence): SubSequence {
+            if (this.mergableAfter && rightSubSequence.mergableBefore) {
+                val leftValuesButLast = sequenceValues.subList(0, sequenceValues.size - 1)
+                val mergedValue = sequenceValues.last() + rightSubSequence.sequenceValues.first()
+                // TODO ???
+                println(this.toString())
+                println("++ ${rightSubSequence.sequenceValues}")
+                val rightValuesButFirst = rightSubSequence.sequenceValues.subList(1, rightSubSequence.sequenceValues.size)
+                val resultSequenceValues: List<Int> = leftValuesButLast + mergedValue + rightValuesButFirst
+                return SubSequence(resultSequenceValues, this.mergableBefore, rightSubSequence.mergableAfter)
+            } else {
+                val resultSequenceValues = sequenceValues + rightSubSequence.sequenceValues
+                return SubSequence(resultSequenceValues, this.mergableBefore, rightSubSequence.mergableAfter)
+            }
+
+        }
+    }
 
 }
